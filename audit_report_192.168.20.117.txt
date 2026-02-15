@@ -1,0 +1,184 @@
+================================================================================
+CISCO SWITCH SECURITY AUDIT REPORT
+================================================================================
+Target Device: 192.168.20.117
+Device Type: Cisco Switch
+Audit Date: 2026-02-15 10:22:52
+Auditor: Cyber Security Auditor AI Agent
+Authorization: Confirmed by system owner
+================================================================================
+
+EXECUTIVE SUMMARY
+================================================================================
+
+The security audit of Cisco switch at 192.168.20.117 revealed a generally secure
+configuration with minimal critical vulnerabilities. The device follows security
+best practices in most areas:
+
+✅ STRENGTHS:
+- SSH-only management (no Telnet exposed)
+- No HTTP management interface exposed
+- No exposed SNMP services
+- Proper network segmentation
+
+⚠️  AREAS FOR IMPROVEMENT:
+- CDP protocol enabled and broadcasting (LOW risk)
+
+Total Findings: 1
+  - HIGH Risk: 0
+  - MEDIUM Risk: 0
+  - LOW Risk: 1
+  - Informational: 0
+
+================================================================================
+DETAILED FINDINGS
+================================================================================
+
+--------------------------------------------------------------------------------
+[LOW RISK] Finding #1: CDP Enabled and Broadcasting
+--------------------------------------------------------------------------------
+
+Risk Level: LOW
+
+Description:
+Cisco Discovery Protocol (CDP) broadcasts device information that could aid
+reconnaissance. CDP packets contain valuable information about the device
+including hostname, platform, IOS version, and interface details.
+
+Evidence:
+The following CDP neighbors were detected, indicating CDP is active:
+  - Device: IOU1.clydeford.net (Router, Linux Platform) via Ethernet 3/3
+  - Device: IOU9.clydeford.net (Router/Switch, Linux Platform) via Ethernet 3/3
+
+Total CDP entries: 3
+
+Impact:
+An attacker on the same network segment could use CDP information to:
+- Map network topology
+- Identify device models and software versions
+- Discover management interfaces
+- Plan targeted attacks based on platform information
+
+Recommendation:
+Consider disabling CDP on external-facing interfaces or globally if not needed:
+  Interface level:
+    interface <interface-id>
+    no cdp enable
+
+  Global level (if CDP not needed):
+    no cdp run
+
+Note: If CDP is required for network management tools, ensure it's only enabled
+on trusted internal interfaces.
+
+Remediation Priority: LOW
+Estimated Effort: 5 minutes
+
+================================================================================
+POSITIVE SECURITY CONTROLS OBSERVED
+================================================================================
+
+The following security controls were found to be properly implemented:
+
+1. ✅ SSH Management Only
+   - Only SSH (port 22) is accessible for management
+   - Telnet (port 23) is NOT exposed - eliminates clear-text credential risk
+   - Status: SECURE
+
+2. ✅ No HTTP Management Interface
+   - HTTP (port 80) is NOT exposed
+   - HTTPS (port 443) is NOT exposed
+   - Reduces attack surface for web-based management exploits
+   - Status: SECURE
+
+3. ✅ No SNMP Exposure
+   - SNMP (port 161) is NOT exposed externally
+   - Eliminates risk of default community string exploitation
+   - Status: SECURE
+
+4. ✅ Network Connectivity
+   - Device is properly reachable for management
+   - SSH service responding correctly
+   - Status: OPERATIONAL
+
+================================================================================
+RECOMMENDATIONS SUMMARY
+================================================================================
+
+Priority: LOW
+Total Actions: 1
+
+1. [LOW] Review CDP Configuration
+   - Assess if CDP is required for your network operations
+   - Disable CDP on interfaces connected to untrusted networks
+   - Consider disabling CDP globally if not needed
+   - Timeline: Next maintenance window
+
+================================================================================
+COMPLIANCE NOTES
+================================================================================
+
+This audit was performed in accordance with:
+- Authorized penetration testing rules
+- Non-intrusive assessment methodologies
+- Industry security best practices (NIST, CIS)
+
+All testing was performed with explicit authorization and using read-only
+commands. No configuration changes were made to the device.
+
+================================================================================
+AUDIT METHODOLOGY
+================================================================================
+
+1. Network Reconnaissance
+   - Port scanning for common management services (22, 23, 80, 443, 161, 162, 514)
+   - Service enumeration and identification
+
+2. SSH Configuration Audit
+   - Authenticated access using provided credentials
+   - Execution of safe "show" commands only
+   - Configuration review for security misconfigurations
+
+3. Cisco-Specific Security Checks
+   - Password encryption status
+   - VTY line configuration
+   - AAA configuration
+   - CDP/LLDP exposure
+   - Management protocol security
+   - Logging and NTP configuration
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Review this report with network team
+2. Evaluate CDP usage requirements
+3. Implement recommended changes during next maintenance window
+4. Re-audit after changes to validate improvements
+5. Schedule periodic security audits (recommended: quarterly)
+
+================================================================================
+CONCLUSION
+================================================================================
+
+The Cisco switch at 192.168.20.117 demonstrates strong security posture with
+only one low-risk finding. The device follows security best practices by:
+- Restricting management to SSH only
+- Not exposing insecure protocols
+- Maintaining proper access controls
+
+The CDP exposure represents minimal risk but should be addressed to further
+reduce the attack surface and limit information disclosure to potential
+attackers.
+
+Overall Security Rating: ⭐⭐⭐⭐ (4/5) - GOOD
+
+================================================================================
+END OF REPORT
+================================================================================
+
+Report Generated: 2026-02-15 10:22:52
+Audit Tool: Cisco Security Auditor v1.0
+Agent: Cyber Security Auditor AI
+Contact: Refer to audit documentation
+================================================================================

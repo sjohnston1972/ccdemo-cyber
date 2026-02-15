@@ -1,0 +1,25 @@
+# Environment variables and credentials
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Audit output files (optional - comment out if you want to commit reports)
+# audit_report_*.txt
