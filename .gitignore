@@ -1,6 +1,10 @@
 # Environment variables and credentials
 .env
 
+# Project-local SSH host-key trust store used for host-key verification.
+# Contains real device host keys - never commit it.
+known_hosts
+
 # Python
 __pycache__/
 *.py[cod]

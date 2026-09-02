@@ -19,11 +19,19 @@ DEVICE_IP = os.getenv("DEVICE_IP")
 SSH_USERNAME = os.getenv("SSH_USERNAME")
 SSH_PASSWORD = os.getenv("SSH_PASSWORD")
 
+# Default project-local trust store for SSH host keys. Kept separate from the
+# operator's personal ~/.ssh/known_hosts so audit-onboarded keys stay with the
+# project. This file is git-ignored - see .gitignore.
+DEFAULT_KNOWN_HOSTS_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "known_hosts"
+)
+
 class CiscoSecurityAuditor:
-    def __init__(self, host, username, password):
+    def __init__(self, host, username, password, known_hosts_path=None):
         self.host = host
         self.username = username
         self.password = password
+        self.known_hosts_path = known_hosts_path or DEFAULT_KNOWN_HOSTS_PATH
         self.findings = []
         self.client = None
 
@@ -115,11 +123,26 @@ class CiscoSecurityAuditor:
         return open_ports
 
     def connect_ssh(self):
-        """Establish SSH connection"""
+        """Establish SSH connection with host-key verification.
+
+        Unknown host keys are rejected by default (paramiko.RejectPolicy) -
+        the connection aborts before any credentials are sent. Host keys
+        already present in the system or project-local known_hosts are
+        accepted as before; a key that has changed since it was trusted is
+        always refused.
+        """
         print(f"\n[*] Establishing SSH connection...")
         try:
             self.client = paramiko.SSHClient()
-            self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+            # Trust keys already known to the system and to this project.
+            self.client.load_system_host_keys()
+            if not os.path.exists(self.known_hosts_path):
+                open(self.known_hosts_path, "a").close()
+            self.client.load_host_keys(self.known_hosts_path)
+
+            self.client.set_missing_host_key_policy(paramiko.RejectPolicy())
+
             self.client.connect(
                 self.host,
                 username=self.username,
@@ -152,6 +175,23 @@ class CiscoSecurityAuditor:
                 'SSH authentication with provided credentials failed.',
                 'Authentication unsuccessful',
                 'Verify credentials or check AAA configuration'
+            )
+            return False
+        except paramiko.SSHException as e:
+            print(f"[-] Host key for {self.host} is unknown or has changed "
+                  f"- refusing to send credentials ({e})")
+            self.add_finding(
+                'INFORMATIONAL',
+                'SSH Host Key Verification Failed',
+                'The SSH host key presented by the device is unknown, or does not '
+                'match the key previously trusted for this host. The connection '
+                'was aborted before any credentials were sent.',
+                str(e),
+                'If this is a newly provisioned device, verify its key fingerprint '
+                'out-of-band and add it to known_hosts. If the key changed '
+                'unexpectedly for a previously-trusted host, treat this as a '
+                'possible man-in-the-middle attack and investigate before '
+                'proceeding.'
             )
             return False
         except Exception as e:
