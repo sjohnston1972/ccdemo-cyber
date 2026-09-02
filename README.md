@@ -49,3 +49,25 @@ network topology for the audited environment. See
 [`audit_report_sample.txt`](audit_report_sample.txt) for a fully redacted
 example of the report format, using a fictitious device on the RFC 5737
 TEST-NET-2 documentation range (`198.51.100.0/24`).
+
+## Do-not-commit policy
+
+Never commit any of the following:
+
+- `.env` or any file containing credentials, API keys, or community strings
+- Real audit reports (`audit_report_*.txt`) - git-ignored by design; only
+  the redacted `audit_report_sample.txt` is tracked
+- The project-local `known_hosts` file (git-ignored) - it may contain real
+  device host keys
+- SSH private keys, database connection strings, or other secrets
+
+Before pushing, run `git status` and review what's staged. As a
+defence-in-depth backstop, GitHub's **secret scanning** and **push
+protection** should be enabled on this repository (Settings -> Code
+security and analysis) to catch known secret formats before they reach
+the remote. Optionally, run a pre-commit secret scanner such as
+[gitleaks](https://github.com/gitleaks/gitleaks) locally:
+
+```bash
+gitleaks protect --staged
+```
