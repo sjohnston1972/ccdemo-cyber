@@ -4,6 +4,9 @@ Cisco Switch Security Audit Script
 Performs non-intrusive security assessment of Cisco network devices
 """
 
+import argparse
+import base64
+import hashlib
 import os
 import sys
 import time
@@ -26,11 +29,50 @@ DEFAULT_KNOWN_HOSTS_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "known_hosts"
 )
 
+
+def sha256_fingerprint(key):
+    """Return an OpenSSH-style SHA256 fingerprint (e.g. 'SHA256:abcd...') for
+    a paramiko host key, so an operator can verify it out-of-band before
+    trusting it."""
+    digest = hashlib.sha256(key.asbytes()).digest()
+    b64 = base64.b64encode(digest).decode("ascii").rstrip("=")
+    return f"SHA256:{b64}"
+
+
+class TrustOnFirstUsePolicy(paramiko.MissingHostKeyPolicy):
+    """Explicit, auditable trust-on-first-use (TOFU) host-key policy.
+
+    This is only ever consulted by paramiko for a hostname that has NO key
+    recorded in any loaded host-key store. If a key IS already recorded but
+    the server now presents a different one, paramiko refuses the connection
+    itself (SSHException) before this policy is ever invoked - so a changed
+    key is always rejected, with or without this policy in effect. That is
+    what makes TOFU safe to opt into: it can only onboard a device seen for
+    the first time, never silently accept a key that changed underneath an
+    already-trusted host.
+    """
+
+    def __init__(self, known_hosts_path):
+        self.known_hosts_path = known_hosts_path
+
+    def missing_host_key(self, client, hostname, key):
+        fingerprint = sha256_fingerprint(key)
+        print(f"\n[!] New SSH host key presented for {hostname}:")
+        print(f"    {key.get_name()} {fingerprint}")
+        print("[!] --accept-new-hostkey / AUDIT_ACCEPT_NEW_HOSTKEY=1 is set - "
+              "verify this fingerprint out-of-band, then it will be trusted "
+              f"on first use and saved to {self.known_hosts_path}")
+        client.get_host_keys().add(hostname, key.get_name(), key)
+        client.save_host_keys(self.known_hosts_path)
+
+
 class CiscoSecurityAuditor:
-    def __init__(self, host, username, password, known_hosts_path=None):
+    def __init__(self, host, username, password, accept_new_hostkey=False,
+                 known_hosts_path=None):
         self.host = host
         self.username = username
         self.password = password
+        self.accept_new_hostkey = accept_new_hostkey
         self.known_hosts_path = known_hosts_path or DEFAULT_KNOWN_HOSTS_PATH
         self.findings = []
         self.client = None
@@ -126,10 +168,12 @@ class CiscoSecurityAuditor:
         """Establish SSH connection with host-key verification.
 
         Unknown host keys are rejected by default (paramiko.RejectPolicy) -
-        the connection aborts before any credentials are sent. Host keys
-        already present in the system or project-local known_hosts are
-        accepted as before; a key that has changed since it was trusted is
-        always refused.
+        the connection aborts before any credentials are sent. Set
+        --accept-new-hostkey / AUDIT_ACCEPT_NEW_HOSTKEY=1 to opt in to a
+        trust-on-first-use flow that displays the key's SHA256 fingerprint
+        and saves it to the project known_hosts. A key that has CHANGED since
+        it was trusted is always refused, with or without that flag - that is
+        the MITM case, not a first-connect case.
         """
         print(f"\n[*] Establishing SSH connection...")
         try:
@@ -141,7 +185,12 @@ class CiscoSecurityAuditor:
                 open(self.known_hosts_path, "a").close()
             self.client.load_host_keys(self.known_hosts_path)
 
-            self.client.set_missing_host_key_policy(paramiko.RejectPolicy())
+            if self.accept_new_hostkey:
+                self.client.set_missing_host_key_policy(
+                    TrustOnFirstUsePolicy(self.known_hosts_path)
+                )
+            else:
+                self.client.set_missing_host_key_policy(paramiko.RejectPolicy())
 
             self.client.connect(
                 self.host,
@@ -187,10 +236,10 @@ class CiscoSecurityAuditor:
                 'match the key previously trusted for this host. The connection '
                 'was aborted before any credentials were sent.',
                 str(e),
-                'If this is a newly provisioned device, verify its key fingerprint '
-                'out-of-band and add it to known_hosts. If the key changed '
-                'unexpectedly for a previously-trusted host, treat this as a '
-                'possible man-in-the-middle attack and investigate before '
+                'If this is a newly provisioned device, verify the fingerprint '
+                'out-of-band and re-run with --accept-new-hostkey. If the key '
+                'changed unexpectedly for a previously-trusted host, treat this '
+                'as a possible man-in-the-middle attack and investigate before '
                 'proceeding.'
             )
             return False
@@ -423,7 +472,29 @@ class CiscoSecurityAuditor:
 
         return True
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Cisco Switch Security Audit"
+    )
+    default_accept = os.getenv("AUDIT_ACCEPT_NEW_HOSTKEY", "").strip().lower() in (
+        "1", "true", "yes", "on"
+    )
+    parser.add_argument(
+        "--accept-new-hostkey",
+        action="store_true",
+        default=default_accept,
+        help="Trust-on-first-use: accept and store a previously-unseen SSH "
+             "host key after displaying its SHA256 fingerprint. Off by "
+             "default (equivalent env var: AUDIT_ACCEPT_NEW_HOSTKEY=1). A "
+             "host key that has CHANGED since it was trusted is always "
+             "refused, even with this flag set."
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
+
     # Validate environment variables
     if not all([DEVICE_IP, SSH_USERNAME, SSH_PASSWORD]):
         print("[!] Error: Missing required environment variables in .env file")
@@ -431,7 +502,10 @@ def main():
         sys.exit(1)
 
     # Run audit
-    auditor = CiscoSecurityAuditor(DEVICE_IP, SSH_USERNAME, SSH_PASSWORD)
+    auditor = CiscoSecurityAuditor(
+        DEVICE_IP, SSH_USERNAME, SSH_PASSWORD,
+        accept_new_hostkey=args.accept_new_hostkey,
+    )
     auditor.run_audit()
 
 if __name__ == "__main__":

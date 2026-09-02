@@ -1,8 +1,8 @@
 # Environment variables and credentials
 .env
 
-# Project-local SSH host-key trust store used for host-key verification.
-# Contains real device host keys - never commit it.
+# Project-local SSH host-key trust store (populated by --accept-new-hostkey
+# TOFU onboarding). Contains real device host keys - never commit it.
 known_hosts
 
 # Python
