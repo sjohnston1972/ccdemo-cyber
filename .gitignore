@@ -25,5 +25,6 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Audit output files (optional - comment out if you want to commit reports)
-# audit_report_*.txt
+# Audit output files - never committed by default; they can contain real
+# internal IPs, hostnames, and topology details for the audited environment.
+audit_report_*.txt

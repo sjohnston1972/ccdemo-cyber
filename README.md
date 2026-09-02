@@ -39,3 +39,13 @@ attack, not a first connection, and is never auto-trusted.
 | Unknown host (no key on file) | refused | fingerprint shown, trusted, saved |
 | Known host, key unchanged | connects normally | connects normally |
 | Known host, key **changed** | refused | **refused** (MITM case) |
+
+## Audit reports are git-ignored by design
+
+Running the tool generates `audit_report_<host>.txt`. These files are
+excluded via `.gitignore` (`audit_report_*.txt`) and should **not** be
+committed - a real report can disclose internal IPs, hostnames, and
+network topology for the audited environment. See
+[`audit_report_sample.txt`](audit_report_sample.txt) for a fully redacted
+example of the report format, using a fictitious device on the RFC 5737
+TEST-NET-2 documentation range (`198.51.100.0/24`).
