@@ -247,7 +247,13 @@ audit_commands = [
 ]
 
 client = paramiko.SSHClient()
-client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+# Never use AutoAddPolicy() here: it silently trusts ANY host key from ANY
+# server, so the password on the next line would be handed straight to a
+# man-in-the-middle. Load known host keys and reject anything unrecognized
+# instead - see the implemented pattern (RejectPolicy + optional TOFU
+# onboarding with fingerprint display) in cisco_audit.py's connect_ssh().
+client.load_system_host_keys()
+client.set_missing_host_key_policy(paramiko.RejectPolicy())
 
 client.connect(DEVICE_IP, username=SSH_USERNAME, password=SSH_PASSWORD)
 
@@ -290,7 +296,13 @@ audit_commands = [
 
 # Establish connection
 client = paramiko.SSHClient()
-client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+# Never use AutoAddPolicy() here: it silently trusts ANY host key from ANY
+# server, so the password below would be handed straight to a
+# man-in-the-middle. Load known host keys and reject anything unrecognized
+# instead - see the implemented pattern (RejectPolicy + optional TOFU
+# onboarding with fingerprint display) in cisco_audit.py's connect_ssh().
+client.load_system_host_keys()
+client.set_missing_host_key_policy(paramiko.RejectPolicy())
 
 client.connect(
     DEVICE_IP,
